@@ -17,6 +17,7 @@
 #include "glTF/tiny_gltf.h"
 #define BUFFER_OFFSET(i) ((char*)0 + (i))
 
+#include "Camera.h"
 #include "common/transform.hpp"
 /// OpenGL 초기화 관련 함수
 void init_state();
@@ -67,8 +68,10 @@ GLuint index_buffer;
 
 GLuint diffuse_texid;
 
-kmuvcl::math::vec3f view_position_wc;
+Camera my_camera;
+float aspectRatio = 1.5f;
 
+kmuvcl::math::vec3f view_position_wc;
 kmuvcl::math::vec3f light_position_wc = kmuvcl::math::vec3f(0.0f, 1.0f, 1.0f);
 kmuvcl::math::vec4f light_diffuse = kmuvcl::math::vec4f(1.0f, 1.0f, 1.0f, 1.0f);
 kmuvcl::math::vec4f light_specular =
@@ -77,6 +80,9 @@ kmuvcl::math::vec4f light_specular =
 kmuvcl::math::vec4f material_specular =
     kmuvcl::math::vec4f(1.0f, 1.0f, 1.0f, 1.0f);
 float material_shininess = 60.0f;
+
+void init_camera();
+void save_camera();
 
 bool load_model(tinygltf::Model& model);
 void init_buffer_objects();  // VBO init 함수: GPU의 VBO를 초기화하는 함수.
@@ -146,20 +152,20 @@ void init_shader_program() {
     std::string fragment_shader_file_path;
 
     if (g_model_type == ModelType::duck) {
-        vertex_shader_file_path = "./shader/duck_vertex.glsl";
-        fragment_shader_file_path = "./shader/duck_fragment.glsl";
+        vertex_shader_file_path = "./test_models/DuckTextured/duck_vertex.glsl";
+        fragment_shader_file_path = "./test_models/DuckTextured/duck_fragment.glsl";
     } else if (g_model_type == ModelType::box_textured) {
-        vertex_shader_file_path = "./BoxTextured/boxtexture_vertex.glsl";
-        fragment_shader_file_path = "./BoxTextured/boxtexture_fragment.glsl";
+        vertex_shader_file_path = "./test_models/BoxTextured/boxtexture_vertex.glsl";
+        fragment_shader_file_path = "./test_models/BoxTextured/boxtexture_fragment.glsl";
     } else if (g_model_type == ModelType::triangle) {
-        vertex_shader_file_path = "./triangle/triangle_vertex.glsl";
+        vertex_shader_file_path = "./test_models/triangle/triangle_vertex.glsl";
         fragment_shader_file_path = "./triangle/triangle_fragment.glsl";
     } else if (g_model_type == ModelType::camera) {
-        vertex_shader_file_path = "./camera/camera_vertex.glsl";
-        fragment_shader_file_path = "./camera/camera_fragment.glsl";
+        vertex_shader_file_path = "./test_models/camera/camera_vertex.glsl";
+        fragment_shader_file_path = "./test_models/camera/camera_fragment.glsl";
     } else if (g_model_type == ModelType::box) {
-        vertex_shader_file_path = "./Box/box_vertex.glsl";
-        fragment_shader_file_path = "./Box/box_fragment.glsl";
+        vertex_shader_file_path = "./test_models/Box/box_vertex.glsl";
+        fragment_shader_file_path = "./test_models/Box/box_fragment.glsl";
     } else {
         std::cout << "No model selected";
         assert(0);
@@ -229,15 +235,15 @@ bool load_model(tinygltf::Model& model) {
     std::string file_name;
 
     if (g_model_type == ModelType::duck) {
-        file_name = "Duck.gltf";
+        file_name = "./test_models/DuckTextured/Duck.gltf";
     } else if (g_model_type == ModelType::box_textured) {
-        file_name = "BoxTextured/Boxtextured.gltf";
+        file_name = "./test_models/BoxTextured/Boxtextured.gltf";
     } else if (g_model_type == ModelType::triangle) {
-        file_name = "./triangle/triangle.gltf";
+        file_name = "./test_models/triangle/triangle.gltf";
     } else if (g_model_type == ModelType::camera) {
-        file_name = "./camera/Cameras.gltf";
+        file_name = "./test_models/camera/Cameras.gltf";
     } else if (g_model_type == ModelType::box) {
-        file_name = "./Box/Box.gltf";
+        file_name = "./test_models/box/box.gltf";
     } else {
         std::cout << "No model selected";
         assert(0);
@@ -264,6 +270,109 @@ bool load_model(tinygltf::Model& model) {
 
 
     return res;
+}
+
+void init_camera(){
+    const std::vector<tinygltf::Node>& nodes = model.nodes;
+    const std::vector<tinygltf::Camera>& cameras = model.cameras;
+
+    const tinygltf::Camera& camera = cameras[camera_index];
+    
+    if (camera.type.compare("perspective") == 0) {
+        my_camera.set_fovy(kmuvcl::math::rad2deg(camera.perspective.yfov));
+        aspectRatio = camera.perspective.aspectRatio;
+        my_camera.set_near(camera.perspective.znear);
+        my_camera.set_far(camera.perspective.zfar);
+
+        // std::cout << "(camera.mode() == Camera::kPerspective)" << std::endl;
+        // std::cout << "(fovy, aspect, n, f): " << fovy << ", " << aspectRatio
+        //         << ", " << znear << ", " << zfar << std::endl;
+    } else {  // (camera.type.compare("orthographic") == 0)
+        my_camera.set_left(-camera.orthographic.xmag);
+        my_camera.set_right(camera.orthographic.xmag);
+        my_camera.set_top(camera.orthographic.ymag);
+        my_camera.set_bottom(-camera.orthographic.ymag);
+    }
+
+    mat_view.set_to_identity();
+    for (const tinygltf::Node& node : nodes) {
+        if (node.camera != camera_index) {
+            continue;
+        }
+
+        if (node.rotation.size() == 4) {
+            mat_view = mat_view * kmuvcl::math::quat2mat(
+                                      node.rotation[0], node.rotation[1],
+                                      node.rotation[2], node.rotation[3])
+                                      .transpose();
+        }
+
+        if (node.translation.size() == 3) {
+            mat_view =
+                mat_view * kmuvcl::math::translate<float>(-node.translation[0],
+                                                          -node.translation[1],
+                                                          -node.translation[2]);
+        }
+
+        if (node.matrix.size() == 16) {
+            kmuvcl::math::mat4f mat_node;
+            mat_node(0, 0) = node.matrix[0];
+            mat_node(0, 1) = node.matrix[1];
+            mat_node(0, 2) = node.matrix[2];
+            mat_node(0, 3) = node.matrix[3];
+
+            mat_node(1, 0) = node.matrix[4];
+            mat_node(1, 1) = node.matrix[5];
+            mat_node(1, 2) = node.matrix[6];
+            mat_node(1, 3) = node.matrix[7];
+
+            mat_node(2, 0) = node.matrix[8];
+            mat_node(2, 1) = node.matrix[9];
+            mat_node(2, 2) = node.matrix[10];
+            mat_node(2, 3) = node.matrix[11];
+
+            mat_node(3, 0) = node.matrix[12];
+            mat_node(3, 1) = node.matrix[13];
+            mat_node(3, 2) = node.matrix[14];
+            mat_node(3, 3) = node.matrix[15];
+
+            mat_view = mat_view * mat_node.transpose();
+        }
+    }
+}
+
+void save_camera() {
+    std::vector<tinygltf::Node>& nodes = model.nodes;
+    std::vector<tinygltf::Camera>& cameras = model.cameras;
+
+    tinygltf::Camera& camera = cameras[camera_index];
+    if (camera.type.compare("perspective") == 0) {
+        camera.perspective.yfov = my_camera.fovy();
+        camera.perspective.aspectRatio = aspectRatio;
+        camera.perspective.znear = my_camera.near();
+        camera.perspective.zfar = my_camera.far();
+    } else {  // (camera.type.compare("orthographic") == 0)
+        camera.orthographic.xmag = my_camera.right();
+        camera.orthographic.ymag = my_camera.top();
+        camera.orthographic.znear = my_camera.near();
+        camera.orthographic.zfar = my_camera.far();
+    }
+
+    for (tinygltf::Node& node : nodes) {
+        if (node.camera != camera_index) {
+            continue;
+        }
+        std::vector<double> mat;
+        for (int i = 0; i < 4; ++i) {
+            for (int j = 0; j < 4; ++j) {
+                mat.push_back(mat_view(j, i));
+                // std::cout << "mat_view(" << j << "," << i << ")"
+                //           << mat_view(j, i) << std::endl;
+            }
+        }
+        node.matrix = mat;
+        //이게 저장이 되나?
+    }
 }
 
 void init_buffer_objects() {
@@ -400,7 +509,7 @@ void set_transform() {
                 -node.translation[0], -node.translation[1], -node.translation[2]);
         }      
 
-        if (node.matrix.size() == 16) {
+        if (node.translation.size() == 16) {
             kmuvcl::math::mat4f mat_node;
             mat_node(0, 0) = node.matrix[0];
             mat_node(0, 1) = node.matrix[1];
@@ -534,9 +643,9 @@ void draw_mesh(const tinygltf::Mesh& mesh,
     view_position_wc[1] = mat_view(1, 3);
     view_position_wc[2] = mat_view(2, 3);
 
-    // std::cout << "mat view: " << '\n' << mat_view << '\n';
-    // std::cout << "camera positoin: " << view_position_wc[0] << ", "
-    //         << view_position_wc[1] << ", " << view_position_wc[2] << '\n';
+    std::cout << "mat view: " << '\n' << mat_view << '\n';
+    std::cout << "camera positoin: " << view_position_wc[0] << ", "
+            << view_position_wc[1] << ", " << view_position_wc[2] << '\n';
 
     glUniform3fv(loc_u_view_position_wc, 1, view_position_wc);
     glUniform3fv(loc_u_light_position_wc, 1, light_position_wc);
@@ -633,6 +742,24 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	if (key == GLFW_KEY_Q && action == GLFW_PRESS) {
 		camera_index = camera_index == 0 ? 1 : 0;
 	}
+    if (key == GLFW_KEY_A && action == GLFW_PRESS) {
+        // mat_view(0, 3) += -1.0;
+    }
+    if (key == GLFW_KEY_D && action == GLFW_PRESS) {
+        // mat_view(0, 3) += 1.0;
+    }
+    if (key == GLFW_KEY_W && action == GLFW_PRESS) {
+        // mat_view(2, 3) += -1.0;
+    }
+    if (key == GLFW_KEY_S && action == GLFW_PRESS) {
+        // mat_view(2, 3) += 1.0;
+    }
+    if (key == GLFW_KEY_R && action == GLFW_PRESS) {
+        // my_camera.move_up(0.1f);
+    }
+    if (key == GLFW_KEY_F && action == GLFW_PRESS) {
+        // my_camera.move_down(0.1f);
+    }
 }
 
 int main(void) {
@@ -664,6 +791,7 @@ int main(void) {
     init_shader_program();
 
     load_model(model);
+    // init_camera();
 
     // GPU의 VBO를 초기화하는 함수 호출
     init_buffer_objects();
@@ -678,6 +806,7 @@ int main(void) {
 
         set_transform();
         draw_scene();
+        // save_camera();
 
         // Swap front and back buffers
         glfwSwapBuffers(window);
