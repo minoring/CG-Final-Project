@@ -53,6 +53,7 @@ kmuvcl::math::mat4x4f mat_view, mat_proj;
 kmuvcl::math::mat4x4f mat_PVM;
 
 void set_transform();
+int camera_index = 0;
 
 /// 렌더링 관련 변수 및 함수
 tinygltf::Model model;
@@ -216,7 +217,7 @@ void init_shader_program() {
 bool load_model(tinygltf::Model& model) {
     std::string file_name;
 
-    if (g_model_type ==  ModelType::duck) {
+    if (g_model_type == ModelType::duck) {
         file_name = "Duck.gltf";
     } else if (g_model_type == ModelType::box) {
         file_name = "BoxTextured/Boxtextured.gltf";
@@ -340,16 +341,42 @@ void init_texture_objects() {
 }
 
 void set_transform() {
-    // mat_view.set_to_identity();
-    mat_view = kmuvcl::math::translate(0.0f, 0.0f, -2.0f);
+    const std::vector<tinygltf::Node>& nodes = model.nodes;
+    const std::vector<tinygltf::Camera>& cameras = model.cameras;
 
-    // mat_proj.set_to_identity();
-    float fovy = 70.0f;
-    float aspectRatio = 1.0f;
-    float znear = 0.01f;
-    float zfar = 100.0f;
+    const tinygltf::Camera& camera = cameras[camera_index];
+    if (camera.type.compare("perspective") == 0) {
+        float fovy = kmuvcl::math::rad2deg(camera.perspective.yfov);
+        float aspectRatio = camera.perspective.aspectRatio;
+        float znear = camera.perspective.znear;
+        float zfar = camera.perspective.zfar;
 
-    mat_proj = kmuvcl::math::perspective(fovy, aspectRatio, znear, zfar);
+        std::cout << "(camera.mode() == Camera::kPerspective)" << std::endl;
+        std::cout << "(fovy, aspect, n, f): " << fovy << ", " << aspectRatio 
+                << ", " << znear << ", " << zfar << std::endl;
+        mat_proj = kmuvcl::math::perspective(fovy, aspectRatio, znear, zfar);
+    } else { // (camera.type.compare("orthographic") == 0)
+        float xmag = camera.orthographic.xmag;
+        float ymag = camera.orthographic.ymag;
+        float znear = camera.orthographic.znear;
+        float zfar = camera.orthographic.zfar;
+
+        std::cout << "(camera.mode() == Camera::kOrtho)" << std::endl;
+        std::cout << "(xmag, ymag, n, f): " << xmag << ", " << ymag << ", " 
+                << znear << ", " << zfar << std::endl;
+        mat_proj = kmuvcl::math::ortho(-xmag, xmag, -ymag, ymag, znear, zfar);
+    }
+
+    mat_view.set_to_identity();
+    mat_view = kmuvcl::math::translate(0.0f, 0.0f, -3.0f);
+
+    // // mat_proj.set_to_identity();
+    // float fovy = 70.0f;
+    // float aspectRatio = 1.0f;
+    // float znear = 0.01f;
+    // float zfar = 100.0f;
+
+    // mat_proj = kmuvcl::math::perspective(fovy, aspectRatio, znear, zfar);
 }
 
 void draw_node(const tinygltf::Node& node, kmuvcl::math::mat4f mat_model) {
@@ -514,7 +541,7 @@ void draw_scene() {
 }
 
 int main(void) {
-    g_model_type = ModelType::box;
+    g_model_type = ModelType::duck;
 
     GLFWwindow* window;
 
