@@ -176,6 +176,20 @@ mat4x4f quat2mat(T x, T y, T z, T w) {
     return mat_rot;
 }
 
+const float MATH_PI = 3.14159265358979323846f;
+
+template <typename T>
+inline T rad2deg(T deg) {
+    T rad = deg * (180.0f / MATH_PI);
+    return rad;
+}
+
+template <typename T>
+inline T deg2rad(T rad) {
+    T deg = rad * (MATH_PI / 180.0f);
+    return deg;
+}
+
 }  // namespace math
 }  // namespace kmuvcl
 #endif

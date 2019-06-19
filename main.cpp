@@ -151,7 +151,7 @@ void init_shader_program() {
         fragment_shader_file_path = "./shader/fragment.glsl";
     } else {
         std::cout << "No model selected";
-        assert(1);
+        assert(0);
     }
 
     GLuint vertex_shader =
@@ -223,7 +223,7 @@ bool load_model(tinygltf::Model& model) {
         file_name = "BoxTextured/Boxtextured.gltf";
     } else {
         std::cout << "No model selected";
-        assert(1);
+        assert(0);
     }
 
     tinygltf::TinyGLTF loader;
@@ -369,14 +369,6 @@ void set_transform() {
 
     mat_view.set_to_identity();
     mat_view = kmuvcl::math::translate(0.0f, 0.0f, -3.0f);
-
-    // // mat_proj.set_to_identity();
-    // float fovy = 70.0f;
-    // float aspectRatio = 1.0f;
-    // float znear = 0.01f;
-    // float zfar = 100.0f;
-
-    // mat_proj = kmuvcl::math::perspective(fovy, aspectRatio, znear, zfar);
 }
 
 void draw_node(const tinygltf::Node& node, kmuvcl::math::mat4f mat_model) {
