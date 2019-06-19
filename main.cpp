@@ -18,7 +18,6 @@
 #define BUFFER_OFFSET(i) ((char*)0 + (i))
 
 #include "common/transform.hpp"
-
 /// OpenGL 초기화 관련 함수
 void init_state();
 ////////////////////////////////////////////////////////////////////////////////
@@ -41,6 +40,10 @@ GLint loc_u_material_specular;
 GLint loc_u_material_shininess;
 
 GLint loc_u_diffuse_texture;
+
+enum class ModelType { box, duck };
+
+ModelType g_model_type;
 
 GLuint create_shader_from_file(const std::string& filename, GLuint shader_type);
 void init_shader_program();
@@ -72,7 +75,7 @@ kmuvcl::math::vec4f material_specular =
     kmuvcl::math::vec4f(1.0f, 1.0f, 1.0f, 1.0f);
 float material_shininess = 60.0f;
 
-bool load_model(tinygltf::Model& model, const std::string filename);
+bool load_model(tinygltf::Model& model);
 void init_buffer_objects();  // VBO init 함수: GPU의 VBO를 초기화하는 함수.
 void init_texture_objects();
 
@@ -136,14 +139,28 @@ GLuint create_shader_from_file(const std::string& filename,
 
 // vertex shader와 fragment shader를 링크시켜 program을 생성하는 함수
 void init_shader_program() {
+    std::string vertex_shader_file_path;
+    std::string fragment_shader_file_path;
+
+    if (g_model_type == ModelType::duck) {
+        vertex_shader_file_path = "./shader/duck_vertex.glsl";
+        fragment_shader_file_path = "./shader/duck_fragment.glsl";
+    } else if (g_model_type == ModelType::box) {
+        vertex_shader_file_path = "./shader/vertex.glsl";
+        fragment_shader_file_path = "./shader/fragment.glsl";
+    } else {
+        std::cout << "No model selected";
+        assert(1);
+    }
+
     GLuint vertex_shader =
-        create_shader_from_file("./shader/vertex.glsl", GL_VERTEX_SHADER);
+        create_shader_from_file(vertex_shader_file_path, GL_VERTEX_SHADER);
 
     std::cout << "vertex_shader id: " << vertex_shader << std::endl;
     assert(vertex_shader != 0);
 
     GLuint fragment_shader =
-        create_shader_from_file("./shader/fragment.glsl", GL_FRAGMENT_SHADER);
+        create_shader_from_file(fragment_shader_file_path, GL_FRAGMENT_SHADER);
 
     std::cout << "fragment_shader id: " << fragment_shader << std::endl;
     assert(fragment_shader != 0);
@@ -196,12 +213,23 @@ void init_shader_program() {
     loc_a_texcoord = glGetAttribLocation(program, "a_texcoord");
 }
 
-bool load_model(tinygltf::Model& model, const std::string filename) {
+bool load_model(tinygltf::Model& model) {
+    std::string file_name;
+
+    if (g_model_type ==  ModelType::duck) {
+        file_name = "Duck.gltf";
+    } else if (g_model_type == ModelType::box) {
+        file_name = "BoxTextured/Boxtextured.gltf";
+    } else {
+        std::cout << "No model selected";
+        assert(1);
+    }
+
     tinygltf::TinyGLTF loader;
     std::string err;
     std::string warn;
 
-    bool res = loader.LoadASCIIFromFile(&model, &err, &warn, filename);
+    bool res = loader.LoadASCIIFromFile(&model, &err, &warn, file_name);
     if (!warn.empty()) {
         std::cout << "WARNING: " << warn << std::endl;
     }
@@ -211,9 +239,9 @@ bool load_model(tinygltf::Model& model, const std::string filename) {
     }
 
     if (!res) {
-        std::cout << "Failed to load glTF: " << filename << std::endl;
+        std::cout << "Failed to load glTF: " << file_name << std::endl;
     } else {
-        std::cout << "Loaded glTF: " << filename << std::endl;
+        std::cout << "Loaded glTF: " << file_name << std::endl;
     }
 
     std::cout << std::endl;
@@ -486,6 +514,8 @@ void draw_scene() {
 }
 
 int main(void) {
+    g_model_type = ModelType::box;
+
     GLFWwindow* window;
 
     // Initialize GLFW library
@@ -511,7 +541,7 @@ int main(void) {
     init_state();
     init_shader_program();
 
-    load_model(model, "BoxTextured/BoxTextured.gltf");
+    load_model(model);
 
     // GPU의 VBO를 초기화하는 함수 호출
     init_buffer_objects();
