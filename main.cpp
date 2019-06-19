@@ -351,9 +351,9 @@ void set_transform() {
         float znear = camera.perspective.znear;
         float zfar = camera.perspective.zfar;
 
-        std::cout << "(camera.mode() == Camera::kPerspective)" << std::endl;
-        std::cout << "(fovy, aspect, n, f): " << fovy << ", " << aspectRatio 
-                << ", " << znear << ", " << zfar << std::endl;
+        // std::cout << "(camera.mode() == Camera::kPerspective)" << std::endl;
+        // std::cout << "(fovy, aspect, n, f): " << fovy << ", " << aspectRatio 
+        //         << ", " << znear << ", " << zfar << std::endl;
         mat_proj = kmuvcl::math::perspective(fovy, aspectRatio, znear, zfar);
     } else { // (camera.type.compare("orthographic") == 0)
         float xmag = camera.orthographic.xmag;
@@ -361,63 +361,110 @@ void set_transform() {
         float znear = camera.orthographic.znear;
         float zfar = camera.orthographic.zfar;
 
-        std::cout << "(camera.mode() == Camera::kOrtho)" << std::endl;
-        std::cout << "(xmag, ymag, n, f): " << xmag << ", " << ymag << ", " 
-                << znear << ", " << zfar << std::endl;
+        // std::cout << "(camera.mode() == Camera::kOrtho)" << std::endl;
+        // std::cout << "(xmag, ymag, n, f): " << xmag << ", " << ymag << ", " 
+        //         << znear << ", " << zfar << std::endl;
         mat_proj = kmuvcl::math::ortho(-xmag, xmag, -ymag, ymag, znear, zfar);
     }
 
     mat_view.set_to_identity();
-    mat_view = kmuvcl::math::translate(0.0f, 0.0f, -3.0f);
+    for (const tinygltf::Node& node : nodes) {
+        if (node.camera != camera_index) {
+            continue;
+        }
+
+        if (node.scale.size() == 3) {
+            mat_view = mat_view * kmuvcl::math::scale<float>(
+                1.0f / node.scale[0], 1.0f / node.scale[1], 1.0f / node.scale[2]);
+        }
+
+        if (node.rotation.size() == 4) {
+            mat_view = mat_view * kmuvcl::math::quat2mat(
+                node.rotation[0], node.rotation[1], node.rotation[2], node.rotation[3]).transpose();
+        }
+
+        if (node.translation.size() == 3) {
+            mat_view = mat_view * kmuvcl::math::translate<float>(
+                -node.translation[0], -node.translation[1], -node.translation[2]);
+        }      
+
+        if (node.matrix.size() == 16) {
+            kmuvcl::math::mat4f mat_node;
+            mat_node(0, 0) = node.matrix[0];
+            mat_node(0, 1) = node.matrix[1];
+            mat_node(0, 2) = node.matrix[2];
+            mat_node(0, 3) = node.matrix[3];
+
+            mat_node(1, 0) = node.matrix[4];
+            mat_node(1, 1) = node.matrix[5];
+            mat_node(1, 2) = node.matrix[6];
+            mat_node(1, 3) = node.matrix[7];
+
+            mat_node(2, 0) = node.matrix[8];
+            mat_node(2, 1) = node.matrix[9];
+            mat_node(2, 2) = node.matrix[10];
+            mat_node(2, 3) = node.matrix[11];
+
+            mat_node(3, 0) = node.matrix[12];
+            mat_node(3, 1) = node.matrix[13];
+            mat_node(3, 2) = node.matrix[14];
+            mat_node(3, 3) = node.matrix[15];
+
+            mat_view = mat_view * mat_node.transpose();
+        }
+    }
+    // mat_view.set_to_identity();
+    // mat_view = kmuvcl::math::translate(0.0f, 0.0f, -3.0f);
 }
 
 void draw_node(const tinygltf::Node& node, kmuvcl::math::mat4f mat_model) {
     const std::vector<tinygltf::Node>& nodes = model.nodes;
     const std::vector<tinygltf::Mesh>& meshes = model.meshes;
 
-    if (node.scale.size() == 3) {
-        mat_model =
-            mat_model * kmuvcl::math::scale<float>(node.scale[0], node.scale[1],
-                                                   node.scale[2]);
+    if (node.camera != camera_index) {
+        if (node.scale.size() == 3) {
+            mat_model =
+                mat_model * kmuvcl::math::scale<float>(node.scale[0], node.scale[1],
+                                                    node.scale[2]);
+        }
+
+        if (node.rotation.size() == 4) {
+            mat_model = mat_model *
+                        kmuvcl::math::quat2mat(node.rotation[0], node.rotation[1],
+                                            node.rotation[2], node.rotation[3]);
+        }
+
+        if (node.translation.size() == 3) {
+            mat_model = mat_model * kmuvcl::math::translate<float>(
+                                        node.translation[0], node.translation[1],
+                                        node.translation[2]);
+        }
+
+        if (node.matrix.size() == 16) {
+            kmuvcl::math::mat4f mat_node;
+            mat_node(0, 0) = node.matrix[0];
+            mat_node(0, 1) = node.matrix[1];
+            mat_node(0, 2) = node.matrix[2];
+            mat_node(0, 3) = node.matrix[3];
+
+            mat_node(1, 0) = node.matrix[4];
+            mat_node(1, 1) = node.matrix[5];
+            mat_node(1, 2) = node.matrix[6];
+            mat_node(1, 3) = node.matrix[7];
+
+            mat_node(2, 0) = node.matrix[8];
+            mat_node(2, 1) = node.matrix[9];
+            mat_node(2, 2) = node.matrix[10];
+            mat_node(2, 3) = node.matrix[11];
+
+            mat_node(3, 0) = node.matrix[12];
+            mat_node(3, 1) = node.matrix[13];
+            mat_node(3, 2) = node.matrix[14];
+            mat_node(3, 3) = node.matrix[15];
+
+            mat_model = mat_model * mat_node.transpose();
+        }
     }
-
-    if (node.rotation.size() == 4) {
-        mat_model = mat_model *
-                    kmuvcl::math::quat2mat(node.rotation[0], node.rotation[1],
-                                           node.rotation[2], node.rotation[3]);
-    }
-
-    if (node.translation.size() == 3) {
-        mat_model = mat_model * kmuvcl::math::translate<float>(
-                                    node.translation[0], node.translation[1],
-                                    node.translation[2]);
-    }
-
-    if (node.matrix.size() == 16) {
-        kmuvcl::math::mat4f mat_node;
-        mat_node(0, 0) = node.matrix[0];
-        mat_node(0, 1) = node.matrix[1];
-        mat_node(0, 2) = node.matrix[2];
-        mat_node(0, 3) = node.matrix[3];
-
-        mat_node(1, 0) = node.matrix[4];
-        mat_node(1, 1) = node.matrix[5];
-        mat_node(1, 2) = node.matrix[6];
-        mat_node(1, 3) = node.matrix[7];
-
-        mat_node(2, 0) = node.matrix[8];
-        mat_node(2, 1) = node.matrix[9];
-        mat_node(2, 2) = node.matrix[10];
-        mat_node(2, 3) = node.matrix[11];
-
-        mat_node(3, 0) = node.matrix[12];
-        mat_node(3, 1) = node.matrix[13];
-        mat_node(3, 2) = node.matrix[14];
-        mat_node(3, 3) = node.matrix[15];
-
-        mat_model = mat_model * mat_node;
-    }
-
     if (node.mesh > -1) {
         draw_mesh(meshes[node.mesh], mat_model);
     }
@@ -443,6 +490,11 @@ void draw_mesh(const tinygltf::Mesh& mesh,
     view_position_wc[0] = mat_view(0, 3);
     view_position_wc[1] = mat_view(1, 3);
     view_position_wc[2] = mat_view(2, 3);
+
+    std::cout << "mat view: " << '\n' << mat_view << '\n';
+    std::cout << "camera positoin: " << view_position_wc[0] << ", "
+            << view_position_wc[1] << ", " << view_position_wc[2] << '\n';
+
     glUniform3fv(loc_u_view_position_wc, 1, view_position_wc);
     glUniform3fv(loc_u_light_position_wc, 1, light_position_wc);
 
