@@ -390,7 +390,6 @@ void set_transform() {
 
         if (node.matrix.size() == 16) {
             kmuvcl::math::mat4f mat_node;
-            mat_node.set_to_identity();
             mat_node(0, 0) = node.matrix[0];
             mat_node(0, 1) = node.matrix[1];
             mat_node(0, 2) = node.matrix[2];
@@ -443,7 +442,6 @@ void draw_node(const tinygltf::Node& node, kmuvcl::math::mat4f mat_model) {
 
         if (node.matrix.size() == 16) {
             kmuvcl::math::mat4f mat_node;
-            mat_node.set_to_identity();
             mat_node(0, 0) = node.matrix[0];
             mat_node(0, 1) = node.matrix[1];
             mat_node(0, 2) = node.matrix[2];
