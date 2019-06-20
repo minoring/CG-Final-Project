@@ -41,7 +41,7 @@ GLint loc_u_material_shininess;
 
 GLint loc_u_diffuse_texture;
 
-enum class ModelType { box, duck, triangle };
+enum class ModelType { box, duck, triangle, camera };
 
 ModelType g_model_type;
 
@@ -54,6 +54,7 @@ kmuvcl::math::mat4x4f mat_PVM;
 
 void set_transform();
 void set_projection(const tinygltf::Camera& camera);
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 int camera_index = 0;
 
 /// 렌더링 관련 변수 및 함수
@@ -153,6 +154,9 @@ void init_shader_program() {
     } else if (g_model_type == ModelType::triangle) {
         vertex_shader_file_path = "./triangle/triangle_vertex.glsl";
         fragment_shader_file_path = "./triangle/triangle_fragment.glsl";
+    } else if (g_model_type == ModelType::camera) {
+        vertex_shader_file_path = "./camera/camera_vertex.glsl";
+        fragment_shader_file_path = "./camera/camera_fragment.glsl";
     } else {
         std::cout << "No model selected";
         assert(0);
@@ -227,6 +231,8 @@ bool load_model(tinygltf::Model& model) {
         file_name = "BoxTextured/Boxtextured.gltf";
     } else if (g_model_type == ModelType::triangle) {
         file_name = "./triangle/triangle.gltf";
+    } else if (g_model_type == ModelType::camera) {
+        file_name = "./camera/Cameras.gltf";
     } else {
         std::cout << "No model selected";
         assert(0);
@@ -408,8 +414,8 @@ void set_transform() {
             mat_view = mat_view * mat_node.transpose();
         }
     }
-    mat_view.set_to_identity();
-    mat_view = kmuvcl::math::translate(0.0f, 0.0f, -1.0f);
+    // mat_view.set_to_identity();
+    // mat_view = kmuvcl::math::translate(-0.5f, -0.5f, -3.0f);
 }
 
 void set_projection(const tinygltf::Camera& camera) {
@@ -607,8 +613,14 @@ void draw_scene() {
     }
 }
 
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+	if (key == GLFW_KEY_Q && action == GLFW_PRESS) {
+		camera_index = camera_index == 0 ? 1 : 0;
+	}
+}
+
 int main(void) {
-    g_model_type = ModelType::triangle;
+    g_model_type = ModelType::camera;
 
     GLFWwindow* window;
 
@@ -640,6 +652,8 @@ int main(void) {
     // GPU의 VBO를 초기화하는 함수 호출
     init_buffer_objects();
     init_texture_objects();
+
+    glfwSetKeyCallback(window, key_callback);
 
     // Loop until the user closes the window
     while (!glfwWindowShouldClose(window)) {
