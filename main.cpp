@@ -41,7 +41,7 @@ GLint loc_u_material_shininess;
 
 GLint loc_u_diffuse_texture;
 
-enum class ModelType { box, duck, triangle, camera };
+enum class ModelType { box_textured, duck, triangle, camera, box };
 
 ModelType g_model_type;
 
@@ -148,15 +148,18 @@ void init_shader_program() {
     if (g_model_type == ModelType::duck) {
         vertex_shader_file_path = "./shader/duck_vertex.glsl";
         fragment_shader_file_path = "./shader/duck_fragment.glsl";
-    } else if (g_model_type == ModelType::box) {
-        vertex_shader_file_path = "./shader/vertex.glsl";
-        fragment_shader_file_path = "./shader/fragment.glsl";
+    } else if (g_model_type == ModelType::box_textured) {
+        vertex_shader_file_path = "./BoxTextured/boxtexture_vertex.glsl";
+        fragment_shader_file_path = "./BoxTextured/boxtexture_fragment.glsl";
     } else if (g_model_type == ModelType::triangle) {
         vertex_shader_file_path = "./triangle/triangle_vertex.glsl";
         fragment_shader_file_path = "./triangle/triangle_fragment.glsl";
     } else if (g_model_type == ModelType::camera) {
         vertex_shader_file_path = "./camera/camera_vertex.glsl";
         fragment_shader_file_path = "./camera/camera_fragment.glsl";
+    } else if (g_model_type == ModelType::box) {
+        vertex_shader_file_path = "./Box/box_vertex.glsl";
+        fragment_shader_file_path = "./Box/box_fragment.glsl";
     } else {
         std::cout << "No model selected";
         assert(0);
@@ -227,12 +230,14 @@ bool load_model(tinygltf::Model& model) {
 
     if (g_model_type == ModelType::duck) {
         file_name = "Duck.gltf";
-    } else if (g_model_type == ModelType::box) {
+    } else if (g_model_type == ModelType::box_textured) {
         file_name = "BoxTextured/Boxtextured.gltf";
     } else if (g_model_type == ModelType::triangle) {
         file_name = "./triangle/triangle.gltf";
     } else if (g_model_type == ModelType::camera) {
         file_name = "./camera/Cameras.gltf";
+    } else if (g_model_type == ModelType::box) {
+        file_name = "./Box/Box.gltf";
     } else {
         std::cout << "No model selected";
         assert(0);
@@ -366,6 +371,12 @@ void set_transform() {
         set_projection(camera);
     } else {
         mat_proj.set_to_identity();
+        float fovy = 70.0f;
+        float aspectRatio = 1.0f;
+        float znear = 0.01f;
+        float zfar = 100.0f;
+
+        mat_proj = kmuvcl::math::perspective(fovy, aspectRatio, znear, zfar);
     }
 
     mat_view.set_to_identity();
@@ -416,6 +427,11 @@ void set_transform() {
     }
     // mat_view.set_to_identity();
     // mat_view = kmuvcl::math::translate(-0.5f, -0.5f, -3.0f);
+    if (g_model_type == ModelType::box_textured) {
+        mat_view = kmuvcl::math::translate(0.0f, 0.0f, -2.0f);
+    } else if (g_model_type == ModelType::box) {
+        mat_view = kmuvcl::math::translate(-0.7f, -0.6f, -2.0f);
+    }
 }
 
 void set_projection(const tinygltf::Camera& camera) {
@@ -620,7 +636,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 }
 
 int main(void) {
-    g_model_type = ModelType::camera;
+    g_model_type = ModelType::box;
 
     GLFWwindow* window;
 
