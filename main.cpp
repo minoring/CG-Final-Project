@@ -41,7 +41,7 @@ GLint loc_u_material_shininess;
 
 GLint loc_u_diffuse_texture;
 
-enum class ModelType { box, duck };
+enum class ModelType { box, duck, triangle };
 
 ModelType g_model_type;
 
@@ -53,6 +53,7 @@ kmuvcl::math::mat4x4f mat_view, mat_proj;
 kmuvcl::math::mat4x4f mat_PVM;
 
 void set_transform();
+void set_projection(const tinygltf::Camera& camera);
 int camera_index = 0;
 
 /// 렌더링 관련 변수 및 함수
@@ -149,6 +150,9 @@ void init_shader_program() {
     } else if (g_model_type == ModelType::box) {
         vertex_shader_file_path = "./shader/vertex.glsl";
         fragment_shader_file_path = "./shader/fragment.glsl";
+    } else if (g_model_type == ModelType::triangle) {
+        vertex_shader_file_path = "./triangle/triangle_vertex.glsl";
+        fragment_shader_file_path = "./triangle/triangle_fragment.glsl";
     } else {
         std::cout << "No model selected";
         assert(0);
@@ -221,6 +225,8 @@ bool load_model(tinygltf::Model& model) {
         file_name = "Duck.gltf";
     } else if (g_model_type == ModelType::box) {
         file_name = "BoxTextured/Boxtextured.gltf";
+    } else if (g_model_type == ModelType::triangle) {
+        file_name = "./triangle/triangle.gltf";
     } else {
         std::cout << "No model selected";
         assert(0);
@@ -245,7 +251,6 @@ bool load_model(tinygltf::Model& model) {
         std::cout << "Loaded glTF: " << file_name << std::endl;
     }
 
-    std::cout << std::endl;
 
     return res;
 }
@@ -258,16 +263,21 @@ void init_buffer_objects() {
 
     for (const tinygltf::Mesh& mesh : meshes) {
         for (const tinygltf::Primitive& primitive : mesh.primitives) {
-            const tinygltf::Accessor& accessor = accessors[primitive.indices];
-            const tinygltf::BufferView& bufferView =
-                bufferViews[accessor.bufferView];
-            const tinygltf::Buffer& buffer = buffers[bufferView.buffer];
+            if (primitive.indices > -1) {
+                // glDrawElement랑 glDrawArray랑 구분하기 위해.
+                // glDrawArray는 index buffer를 만들면 안됨.
+                const tinygltf::Accessor& accessor = accessors[primitive.indices];
+                const tinygltf::BufferView& bufferView =
+                    bufferViews[accessor.bufferView];
+                const tinygltf::Buffer& buffer = buffers[bufferView.buffer];
 
-            glGenBuffers(1, &index_buffer);
-            glBindBuffer(bufferView.target, index_buffer);
-            glBufferData(bufferView.target, bufferView.byteLength,
-                         &buffer.data.at(0) + bufferView.byteOffset,
-                         GL_STATIC_DRAW);
+                glGenBuffers(1, &index_buffer);
+                glBindBuffer(bufferView.target, index_buffer);
+                glBufferData(bufferView.target, bufferView.byteLength,
+                            &buffer.data.at(0) + bufferView.byteOffset,
+                            GL_STATIC_DRAW);
+                std::cout << "Indices buffer initialized" << '\n';
+            }
 
             for (const auto& attrib : primitive.attributes) {
                 const tinygltf::Accessor& accessor = accessors[attrib.second];
@@ -344,27 +354,12 @@ void set_transform() {
     const std::vector<tinygltf::Node>& nodes = model.nodes;
     const std::vector<tinygltf::Camera>& cameras = model.cameras;
 
-    const tinygltf::Camera& camera = cameras[camera_index];
-    if (camera.type.compare("perspective") == 0) {
-        float fovy = kmuvcl::math::rad2deg(camera.perspective.yfov);
-        float aspectRatio = camera.perspective.aspectRatio;
-        float znear = camera.perspective.znear;
-        float zfar = camera.perspective.zfar;
-
-        // std::cout << "(camera.mode() == Camera::kPerspective)" << std::endl;
-        // std::cout << "(fovy, aspect, n, f): " << fovy << ", " << aspectRatio 
-        //         << ", " << znear << ", " << zfar << std::endl;
-        mat_proj = kmuvcl::math::perspective(fovy, aspectRatio, znear, zfar);
-    } else { // (camera.type.compare("orthographic") == 0)
-        float xmag = camera.orthographic.xmag;
-        float ymag = camera.orthographic.ymag;
-        float znear = camera.orthographic.znear;
-        float zfar = camera.orthographic.zfar;
-
-        // std::cout << "(camera.mode() == Camera::kOrtho)" << std::endl;
-        // std::cout << "(xmag, ymag, n, f): " << xmag << ", " << ymag << ", " 
-        //         << znear << ", " << zfar << std::endl;
-        mat_proj = kmuvcl::math::ortho(-xmag, xmag, -ymag, ymag, znear, zfar);
+    if (!cameras.empty()) {
+        // 카메라가 있는경우만.
+        const tinygltf::Camera& camera = cameras[camera_index];
+        set_projection(camera);
+    } else {
+        mat_proj.set_to_identity();
     }
 
     mat_view.set_to_identity();
@@ -413,8 +408,34 @@ void set_transform() {
             mat_view = mat_view * mat_node.transpose();
         }
     }
-    // mat_view.set_to_identity();
-    // mat_view = kmuvcl::math::translate(0.0f, 0.0f, -3.0f);
+    mat_view.set_to_identity();
+    mat_view = kmuvcl::math::translate(0.0f, 0.0f, -1.0f);
+}
+
+void set_projection(const tinygltf::Camera& camera) {
+    if (camera.type.compare("perspective") == 0) {
+        float fovy = kmuvcl::math::rad2deg(camera.perspective.yfov);
+        float aspectRatio = camera.perspective.aspectRatio;
+        float znear = camera.perspective.znear;
+        float zfar = camera.perspective.zfar;
+
+        // std::cout << "(camera.mode() == Camera::kPerspective)" << std::endl;
+        // std::cout << "(fovy, aspect, n, f): " << fovy << ", " << aspectRatio 
+        //         << ", " << znear << ", " << zfar << std::endl;
+        mat_proj = kmuvcl::math::perspective(fovy, aspectRatio, znear, zfar);
+    } else if (camera.type.compare("orthographic") == 0) {
+        float xmag = camera.orthographic.xmag;
+        float ymag = camera.orthographic.ymag;
+        float znear = camera.orthographic.znear;
+        float zfar = camera.orthographic.zfar;
+
+        // std::cout << "(camera.mode() == Camera::kOrtho)" << std::endl;
+        // std::cout << "(xmag, ymag, n, f): " << xmag << ", " << ymag << ", " 
+        //         << znear << ", " << zfar << std::endl;
+        mat_proj = kmuvcl::math::ortho(-xmag, xmag, -ymag, ymag, znear, zfar);
+    } else {
+        assert(0);
+    }
 }
 
 void draw_node(const tinygltf::Node& node, kmuvcl::math::mat4f mat_model) {
@@ -491,9 +512,9 @@ void draw_mesh(const tinygltf::Mesh& mesh,
     view_position_wc[1] = mat_view(1, 3);
     view_position_wc[2] = mat_view(2, 3);
 
-    std::cout << "mat view: " << '\n' << mat_view << '\n';
-    std::cout << "camera positoin: " << view_position_wc[0] << ", "
-            << view_position_wc[1] << ", " << view_position_wc[2] << '\n';
+    // std::cout << "mat view: " << '\n' << mat_view << '\n';
+    // std::cout << "camera positoin: " << view_position_wc[0] << ", "
+    //         << view_position_wc[1] << ", " << view_position_wc[2] << '\n';
 
     glUniform3fv(loc_u_view_position_wc, 1, view_position_wc);
     glUniform3fv(loc_u_light_position_wc, 1, light_position_wc);
@@ -552,16 +573,18 @@ void draw_mesh(const tinygltf::Mesh& mesh,
             }
         }
 
-        const tinygltf::Accessor& index_accessor = accessors[primitive.indices];
-        const tinygltf::BufferView& bufferView =
-            bufferViews[index_accessor.bufferView];
+        if (primitive.indices > -1) {
+            const tinygltf::Accessor& index_accessor = accessors[primitive.indices];
+            const tinygltf::BufferView& bufferView =
+                    bufferViews[index_accessor.bufferView];
 
         glBindBuffer(bufferView.target, index_buffer);
-
         glDrawElements(primitive.mode, index_accessor.count,
                        index_accessor.componentType,
                        BUFFER_OFFSET(index_accessor.byteOffset));
-
+        } else {
+            glDrawArrays(GL_TRIANGLES, 0, 3);
+        }
         // 정점 attribute 배열 비활성화
         glDisableVertexAttribArray(loc_a_texcoord);
         glDisableVertexAttribArray(loc_a_normal);
@@ -585,7 +608,7 @@ void draw_scene() {
 }
 
 int main(void) {
-    g_model_type = ModelType::duck;
+    g_model_type = ModelType::triangle;
 
     GLFWwindow* window;
 
