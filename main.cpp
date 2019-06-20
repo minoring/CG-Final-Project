@@ -28,6 +28,7 @@ GLuint program;
 GLint loc_a_position;
 GLint loc_a_normal;
 GLint loc_a_texcoord;
+GLint loc_a_color;
 
 GLint loc_u_PVM;
 GLint loc_u_M;
@@ -42,7 +43,7 @@ GLint loc_u_material_shininess;
 
 GLint loc_u_diffuse_texture;
 
-enum class ModelType { box_textured, duck, triangle, camera, box };
+enum class ModelType { box_textured, duck, triangle, camera, box, box_vertex_colors };
 
 ModelType g_model_type;
 
@@ -65,6 +66,7 @@ GLuint position_buffer;
 GLuint normal_buffer;
 GLuint texcoord_buffer;
 GLuint index_buffer;
+GLuint color_buffer;
 
 GLuint diffuse_texid;
 
@@ -166,6 +168,9 @@ void init_shader_program() {
     } else if (g_model_type == ModelType::box) {
         vertex_shader_file_path = "./test_models/Box/box_vertex.glsl";
         fragment_shader_file_path = "./test_models/Box/box_fragment.glsl";
+    } else if (g_model_type == ModelType::box_vertex_colors) {
+        vertex_shader_file_path = "./test_models/BoxVertexColors/boxvertexcolors_vertex.glsl";
+        fragment_shader_file_path = "./test_models/BoxVertexColors/boxvertexcolors_fragment.glsl";
     } else {
         std::cout << "No model selected";
         assert(0);
@@ -229,6 +234,7 @@ void init_shader_program() {
     loc_a_position = glGetAttribLocation(program, "a_position");
     loc_a_normal = glGetAttribLocation(program, "a_normal");
     loc_a_texcoord = glGetAttribLocation(program, "a_texcoord");
+    loc_a_color = glGetAttribLocation(program, "a_color");
 }
 
 bool load_model(tinygltf::Model& model) {
@@ -244,6 +250,8 @@ bool load_model(tinygltf::Model& model) {
         file_name = "./test_models/camera/Cameras.gltf";
     } else if (g_model_type == ModelType::box) {
         file_name = "./test_models/box/box.gltf";
+    } else if (g_model_type == ModelType::box_vertex_colors) {
+        file_name = "./test_models/BoxVertexColors/BoxVertexColors.gltf";
     } else {
         std::cout << "No model selected";
         assert(0);
@@ -423,6 +431,12 @@ void init_buffer_objects() {
                     glBufferData(bufferView.target, bufferView.byteLength,
                                  &buffer.data.at(0) + bufferView.byteOffset,
                                  GL_STATIC_DRAW);
+                } else if (attrib.first.compare("COLOR_0") == 0) {
+                    glGenBuffers(1, &color_buffer);
+                    glBindBuffer(bufferView.target, color_buffer);
+                    glBufferData(bufferView.target, bufferView.byteLength,
+                                 &buffer.data.at(0) + bufferView.byteOffset,
+                                 GL_STATIC_DRAW);
                 }
             }
         }
@@ -540,6 +554,8 @@ void set_transform() {
         mat_view = kmuvcl::math::translate(0.0f, 0.0f, -2.0f);
     } else if (g_model_type == ModelType::box) {
         mat_view = kmuvcl::math::translate(-0.7f, -0.6f, -2.0f);
+    } else if (g_model_type == ModelType::box_vertex_colors){
+        mat_view = kmuvcl::math::translate(-0.7f, -0.8f, -3.0f);
     }
 }
 
@@ -701,7 +717,14 @@ void draw_mesh(const tinygltf::Mesh& mesh,
                     loc_a_texcoord, accessor.type, accessor.componentType,
                     accessor.normalized ? GL_TRUE : GL_FALSE, byteStride,
                     BUFFER_OFFSET(accessor.byteOffset));
-            }
+            } else if (attrib.first.compare("COLOR_0") == 0) {
+                glBindBuffer(bufferView.target, color_buffer);
+                glEnableVertexAttribArray(loc_a_color);
+                glVertexAttribPointer(
+                    loc_a_color, accessor.type, accessor.componentType,
+                    accessor.normalized ? GL_TRUE : GL_FALSE, byteStride,
+                    BUFFER_OFFSET(accessor.byteOffset));
+            } 
         }
 
         if (primitive.indices > -1) {
@@ -720,6 +743,7 @@ void draw_mesh(const tinygltf::Mesh& mesh,
         glDisableVertexAttribArray(loc_a_texcoord);
         glDisableVertexAttribArray(loc_a_normal);
         glDisableVertexAttribArray(loc_a_position);
+        glDisableVertexAttribArray(loc_a_color);
     }
     glUseProgram(0);
 }
@@ -763,7 +787,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 }
 
 int main(void) {
-    g_model_type = ModelType::duck;
+    g_model_type = ModelType::box_vertex_colors;
 
     GLFWwindow* window;
 
