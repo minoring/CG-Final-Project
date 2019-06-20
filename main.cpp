@@ -763,7 +763,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 }
 
 int main(void) {
-    g_model_type = ModelType::box;
+    g_model_type = ModelType::duck;
 
     GLFWwindow* window;
 
