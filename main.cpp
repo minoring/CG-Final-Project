@@ -540,13 +540,11 @@ void set_transform() {
     } else {
         std::cout << "No camera" << '\n';
         mat_proj.set_to_identity();
-        float fovy = 70.0f;
-        float aspectRatio = 1.0f;
-        float znear = 0.01f;
-        float zfar = 100.0f;
+        // float fovy = 70.0f;
+        // float aspectRatio = 1.0f;
+        // float znear = 0.01f;
+        // float zfar = 100.0f;
 
-        // mat_proj = kmuvcl::math::perspective(fovy, aspectRatio, znear, zfar);
-        //mat_proj = kmuvcl::math::ortho(-30.f, 30.f, -30.f, 30.f, -30.f, 30.f);
         // mat_proj = kmuvcl::math::perspective(fovy, aspectRatio, znear, zfar);
         mat_proj = kmuvcl::math::ortho(-30.f, 30.f, -30.f, 30.f, -30.f, 30.f);
     }
