@@ -30,7 +30,7 @@ vec4 calc_color()
   color += (ndotl * u_light_diffuse * material_diffuse);
 
   float rdotv = max(0.0, dot(r_wc, v_wc) );
-  //color += (pow(rdotv, u_material_shininess) * u_light_specular * u_material_specular);
+  // color += (pow(rdotv, u_material_shininess) * u_light_specular * u_material_specular);
 
   return color;
 }

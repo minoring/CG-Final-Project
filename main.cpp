@@ -9,6 +9,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <chrono>
 
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
@@ -54,6 +55,10 @@ void init_shader_program();
 kmuvcl::math::mat4x4f mat_view, mat_proj;
 kmuvcl::math::mat4x4f mat_PVM;
 
+float g_angle = 0.0;
+bool g_is_animation = false;
+std::chrono::time_point<std::chrono::system_clock> prev, curr;
+
 void set_transform();
 void set_projection(const tinygltf::Camera& camera);
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
@@ -74,7 +79,7 @@ Camera my_camera;
 float aspectRatio = 1.5f;
 
 kmuvcl::math::vec3f view_position_wc;
-kmuvcl::math::vec3f light_position_wc = kmuvcl::math::vec3f(0.0f, 1.0f, 1.0f);
+kmuvcl::math::vec3f light_position_wc = kmuvcl::math::vec3f(0.0f, 1.0f, 50.0f);
 kmuvcl::math::vec4f light_diffuse = kmuvcl::math::vec4f(1.0f, 1.0f, 1.0f, 1.0f);
 kmuvcl::math::vec4f light_specular =
     kmuvcl::math::vec4f(1.0f, 1.0f, 1.0f, 1.0f);
@@ -500,6 +505,7 @@ void set_transform() {
         float zfar = 100.0f;
 
         mat_proj = kmuvcl::math::perspective(fovy, aspectRatio, znear, zfar);
+        //mat_proj = kmuvcl::math::ortho(-30.f, 30.f, -30.f, 30.f, -30.f, 30.f);
     }
 
     mat_view.set_to_identity();
@@ -632,6 +638,7 @@ void draw_node(const tinygltf::Node& node, kmuvcl::math::mat4f mat_model) {
 
             mat_model = mat_model * mat_node.transpose();
         }
+       	mat_model = kmuvcl::math::rotate(g_angle * 1.0f, 0.0f, 1.0f, 0.0f);
     }
     if (node.mesh > -1) {
         draw_mesh(meshes[node.mesh], mat_model);
@@ -659,9 +666,9 @@ void draw_mesh(const tinygltf::Mesh& mesh,
     view_position_wc[1] = mat_view(1, 3);
     view_position_wc[2] = mat_view(2, 3);
 
-    // std::cout << "mat view: " << '\n' << mat_view << '\n';
-    // std::cout << "camera positoin: " << view_position_wc[0] << ", "
-    //         << view_position_wc[1] << ", " << view_position_wc[2] << '\n';
+    std::cout << "mat view: " << '\n' << mat_view << '\n';
+    std::cout << "camera positoin: " << view_position_wc[0] << ", "
+            << view_position_wc[1] << ", " << view_position_wc[2] << '\n';
 
     glUniform3fv(loc_u_view_position_wc, 1, view_position_wc);
     glUniform3fv(loc_u_light_position_wc, 1, light_position_wc);
@@ -763,6 +770,12 @@ void draw_scene() {
 }
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    if (key == GLFW_KEY_P && action == GLFW_PRESS)
+	{
+		g_is_animation = !g_is_animation;
+		std::cout << (g_is_animation ? "animation" : "no animation") << std::endl;
+	}
+
 	if (key == GLFW_KEY_Q && action == GLFW_PRESS) {
 		camera_index = camera_index == 0 ? 1 : 0;
 	}
@@ -784,26 +797,23 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     if (key == GLFW_KEY_F && action == GLFW_PRESS) {
         // my_camera.move_down(0.1f);
     }
+
+    if(key == GLFW_KEY_UP && action == GLFW_PRESS)
+		light_position_wc += kmuvcl::math::vec3f(0.0f, 10.0f, 0.0f);
+	if(key == GLFW_KEY_DOWN && action == GLFW_PRESS)
+		light_position_wc -= kmuvcl::math::vec3f(0.0f, 10.0f, 0.0f);
+	if(key == GLFW_KEY_LEFT && action == GLFW_PRESS)
+		light_position_wc -= kmuvcl::math::vec3f(10.0f, 0.0f, 0.0f);
+	if(key == GLFW_KEY_RIGHT && action == GLFW_PRESS)
+		light_position_wc += kmuvcl::math::vec3f(10.0f, 0.0f, 0.0f);
+	if(key == GLFW_KEY_R && action == GLFW_PRESS) //move light to rear
+		light_position_wc -= kmuvcl::math::vec3f(0.0f, 0.0f, 10.0f);
+	if(key == GLFW_KEY_F && action == GLFW_PRESS) //move light to front
+		light_position_wc += kmuvcl::math::vec3f(0.0f, 0.0f, 10.0f);
 }
 
-int main(int argc, char* argv[]) {
-    std::string modeltype = argv[1];
-    if (modeltype == "box_textured") {
-        g_model_type = ModelType::box_textured;
-    } else if (modeltype == "duck") {
-        g_model_type = ModelType::duck;
-    } else if (modeltype == "triangle") {
-        g_model_type = ModelType::triangle;
-    } else if (modeltype == "camera") {
-        g_model_type = ModelType::camera;
-    } else if (modeltype == "box") {
-        g_model_type = ModelType::box;
-    } else if (modeltype == "box_vertex_colors") {
-        g_model_type = ModelType::box_vertex_colors;
-    } else {
-        std::cout << "Invaild Modeltype" << std::endl;
-        assert(0);
-    }
+int main(void) {
+    g_model_type = ModelType::box_vertex_colors;
 
     GLFWwindow* window;
 
@@ -839,6 +849,8 @@ int main(int argc, char* argv[]) {
 
     glfwSetKeyCallback(window, key_callback);
 
+  	prev = curr = std::chrono::system_clock::now();
+
     // Loop until the user closes the window
     while (!glfwWindowShouldClose(window)) {
         glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
@@ -847,6 +859,17 @@ int main(int argc, char* argv[]) {
         set_transform();
         draw_scene();
         // save_camera();
+
+        curr = std::chrono::system_clock::now();
+		std::chrono::duration<float> elaped_seconds = (curr - prev);
+		prev = curr;
+
+		if (g_is_animation)
+		{
+			g_angle += 30.0f * elaped_seconds.count();
+			if (g_angle > 360.0f)
+				g_angle = 0.0f;
+		}
 
         // Swap front and back buffers
         glfwSwapBuffers(window);
