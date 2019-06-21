@@ -44,7 +44,8 @@ GLint loc_u_material_shininess;
 
 GLint loc_u_diffuse_texture;
 
-enum class ModelType { box_textured, duck, triangle, camera, box, box_vertex_colors, lantern };
+enum class ModelType { box_textured, duck, triangle, camera, box, 
+                       box_vertex_colors, lantern };
 
 ModelType g_model_type;
 
@@ -73,11 +74,6 @@ GLuint texcoord_buffer;
 GLuint index_buffer;
 GLuint color_buffer;
 
-GLuint index_buffers[3];
-GLuint position_buffers[3];
-GLuint normal_buffers[3];
-GLuint texcoord_buffers[3];
-
 GLuint diffuse_texid;
 
 Camera my_camera;
@@ -103,8 +99,7 @@ void init_texture_objects();
 void draw_scene();
 void draw_node(const tinygltf::Node& node, kmuvcl::math::mat4f mat_view);
 void draw_mesh(const tinygltf::Mesh& mesh,
-               const kmuvcl::math::mat4f& mat_model,
-               unsigned int mesh_idx);
+               const kmuvcl::math::mat4f& mat_model);
 
 void init_state() { glEnable(GL_DEPTH_TEST); }
 
@@ -172,7 +167,7 @@ void init_shader_program() {
         fragment_shader_file_path = "./test_models/BoxTextured/boxtexture_fragment.glsl";
     } else if (g_model_type == ModelType::triangle) {
         vertex_shader_file_path = "./test_models/triangle/triangle_vertex.glsl";
-        fragment_shader_file_path = "./test_models/triangle/triangle_fragment.glsl";
+        fragment_shader_file_path = "./triangle/triangle_fragment.glsl";
     } else if (g_model_type == ModelType::camera) {
         vertex_shader_file_path = "./test_models/camera/camera_vertex.glsl";
         fragment_shader_file_path = "./test_models/camera/camera_fragment.glsl";
@@ -267,7 +262,7 @@ bool load_model(tinygltf::Model& model) {
     } else if (g_model_type == ModelType::box_vertex_colors) {
         file_name = "./test_models/BoxVertexColors/BoxVertexColors.gltf";
     } else if (g_model_type == ModelType::lantern) {
-        file_name = "./test_models/Lantern/Lantern.gltf";
+        file_name = "./test_models/Lantern/Lantern.gltf";        
     } else {
         std::cout << "No model selected";
         assert(0);
@@ -405,7 +400,11 @@ void init_buffer_objects() {
     const std::vector<tinygltf::BufferView>& bufferViews = model.bufferViews;
     const std::vector<tinygltf::Buffer>& buffers = model.buffers;
 
-    unsigned int mesh_idx = 0;
+    bool is_index_buffer_created = false;
+    bool is_position_buffer_created = false;
+    bool is_normal_buffer_created = false;
+    bool is_texcoord_buffer_created = false;
+    bool is_color_buffer_created = false;
 
     for (const tinygltf::Mesh& mesh : meshes) {
         for (const tinygltf::Primitive& primitive : mesh.primitives) {
@@ -417,8 +416,11 @@ void init_buffer_objects() {
                     bufferViews[accessor.bufferView];
                 const tinygltf::Buffer& buffer = buffers[bufferView.buffer];
 
-                glGenBuffers(1, &index_buffers[mesh_idx]);
-                glBindBuffer(bufferView.target, index_buffers[mesh_idx]);
+                if (!is_index_buffer_created) {
+                    glGenBuffers(1, &index_buffer);
+                    is_index_buffer_created = true;
+                }
+                glBindBuffer(bufferView.target, index_buffer);
                 glBufferData(bufferView.target, bufferView.byteLength,
                             &buffer.data.at(0) + bufferView.byteOffset,
                             GL_STATIC_DRAW);
@@ -432,25 +434,37 @@ void init_buffer_objects() {
                 const tinygltf::Buffer& buffer = buffers[bufferView.buffer];
 
                 if (attrib.first.compare("POSITION") == 0) {
-                    glGenBuffers(1, &position_buffers[mesh_idx]);
-                    glBindBuffer(bufferView.target, position_buffers[mesh_idx]);
+                    if (!is_position_buffer_created) {
+                        glGenBuffers(1, &position_buffer);
+                        is_position_buffer_created = true;
+                    }
+                    glBindBuffer(bufferView.target, position_buffer);
                     glBufferData(bufferView.target, bufferView.byteLength,
                                  &buffer.data.at(0) + bufferView.byteOffset,
                                  GL_STATIC_DRAW);
                 } else if (attrib.first.compare("NORMAL") == 0) {
-                    glGenBuffers(1, &normal_buffers[mesh_idx]);
-                    glBindBuffer(bufferView.target, normal_buffers[mesh_idx]);
+                    if (!is_normal_buffer_created) {
+                        glGenBuffers(1, &normal_buffer);
+                        is_normal_buffer_created = true;
+                    }
+                    glBindBuffer(bufferView.target, normal_buffer);
                     glBufferData(bufferView.target, bufferView.byteLength,
                                  &buffer.data.at(0) + bufferView.byteOffset,
                                  GL_STATIC_DRAW);
                 } else if (attrib.first.compare("TEXCOORD_0") == 0) {
-                    glGenBuffers(1, &texcoord_buffers[mesh_idx]);
-                    glBindBuffer(bufferView.target, texcoord_buffers[mesh_idx]);
+                    if (!is_texcoord_buffer_created) {
+                        glGenBuffers(1, &texcoord_buffer);
+                        is_texcoord_buffer_created = true;
+                    }
+                    glBindBuffer(bufferView.target, texcoord_buffer);
                     glBufferData(bufferView.target, bufferView.byteLength,
                                  &buffer.data.at(0) + bufferView.byteOffset,
                                  GL_STATIC_DRAW);
                 } else if (attrib.first.compare("COLOR_0") == 0) {
-                    glGenBuffers(1, &color_buffer);
+                    if (!is_color_buffer_created) {
+                        glGenBuffers(1, &color_buffer);
+                        is_color_buffer_created = true;
+                    }
                     glBindBuffer(bufferView.target, color_buffer);
                     glBufferData(bufferView.target, bufferView.byteLength,
                                  &buffer.data.at(0) + bufferView.byteOffset,
@@ -458,8 +472,6 @@ void init_buffer_objects() {
                 }
             }
         }
-
-        mesh_idx++;
     }
 }
 
@@ -496,12 +508,11 @@ void init_texture_objects() {
         // GL_TEXTURE_MAG_FILTER, sampler.magFilter);
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        if (texture.sampler > -1) { 
+        if (texture.sampler > -1) {
             const tinygltf::Sampler& sampler = samplers[texture.sampler];
             glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, sampler.wrapS);
             glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, sampler.wrapT);
-        }
-
+        } 
         // glGenerateMipmap(GL_TEXTURE_2D);
     }
 }
@@ -577,10 +588,8 @@ void set_transform() {
         mat_view = kmuvcl::math::translate(0.0f, 0.0f, -2.0f);
     } else if (g_model_type == ModelType::box) {
         mat_view = kmuvcl::math::translate(-0.7f, -0.6f, -2.0f);
-    } else if (g_model_type == ModelType::box_vertex_colors){
+    } else if (g_model_type == ModelType::box_vertex_colors) {
         mat_view = kmuvcl::math::translate(-0.7f, -0.8f, -3.0f);
-    } else if (g_model_type == ModelType::lantern) {
-        mat_view = kmuvcl::math::translate(0.0f, 0.0f, -2.0f);
     }
 }
 
@@ -660,7 +669,7 @@ void draw_node(const tinygltf::Node& node, kmuvcl::math::mat4f mat_model) {
        	mat_model = kmuvcl::math::rotate(g_angle * 1.0f, 0.0f, 1.0f, 0.0f);
     }
     if (node.mesh > -1) {
-        draw_mesh(meshes[node.mesh], mat_model, node.mesh);
+        draw_mesh(meshes[node.mesh], mat_model);
     }
 
     for (size_t i = 0; i < node.children.size(); ++i) {
@@ -669,8 +678,7 @@ void draw_node(const tinygltf::Node& node, kmuvcl::math::mat4f mat_model) {
 }
 
 void draw_mesh(const tinygltf::Mesh& mesh,
-               const kmuvcl::math::mat4f& mat_model,
-               unsigned int mesh_idx) {
+               const kmuvcl::math::mat4f& mat_model) {
     const std::vector<tinygltf::Material>& materials = model.materials;
     const std::vector<tinygltf::Texture>& textures = model.textures;
     const std::vector<tinygltf::Accessor>& accessors = model.accessors;
@@ -724,21 +732,21 @@ void draw_mesh(const tinygltf::Mesh& mesh,
             const int byteStride = accessor.ByteStride(bufferView);
 
             if (attrib.first.compare("POSITION") == 0) {
-                glBindBuffer(bufferView.target, position_buffers[mesh_idx]);
+                glBindBuffer(bufferView.target, position_buffer);
                 glEnableVertexAttribArray(loc_a_position);
                 glVertexAttribPointer(
                     loc_a_position, accessor.type, accessor.componentType,
                     accessor.normalized ? GL_TRUE : GL_FALSE, byteStride,
                     BUFFER_OFFSET(accessor.byteOffset));
             } else if (attrib.first.compare("NORMAL") == 0) {
-                glBindBuffer(bufferView.target, normal_buffers[mesh_idx]);
+                glBindBuffer(bufferView.target, normal_buffer);
                 glEnableVertexAttribArray(loc_a_normal);
                 glVertexAttribPointer(
                     loc_a_normal, accessor.type, accessor.componentType,
                     accessor.normalized ? GL_TRUE : GL_FALSE, byteStride,
                     BUFFER_OFFSET(accessor.byteOffset));
             } else if (attrib.first.compare("TEXCOORD_0") == 0) {
-                glBindBuffer(bufferView.target, texcoord_buffers[mesh_idx]);
+                glBindBuffer(bufferView.target, texcoord_buffer);
                 glEnableVertexAttribArray(loc_a_texcoord);
                 glVertexAttribPointer(
                     loc_a_texcoord, accessor.type, accessor.componentType,
@@ -759,7 +767,7 @@ void draw_mesh(const tinygltf::Mesh& mesh,
             const tinygltf::BufferView& bufferView =
                     bufferViews[index_accessor.bufferView];
 
-        glBindBuffer(bufferView.target, index_buffers[mesh_idx]);
+        glBindBuffer(bufferView.target, index_buffer);
         glDrawElements(primitive.mode, index_accessor.count,
                        index_accessor.componentType,
                        BUFFER_OFFSET(index_accessor.byteOffset));
@@ -784,9 +792,7 @@ void draw_scene() {
     for (const tinygltf::Scene& scene : model.scenes) {
         for (size_t i = 0; i < scene.nodes.size(); ++i) {
             const tinygltf::Node& node = nodes[scene.nodes[i]];
-            if (node.mesh > -1) {
-                draw_node(node, mat_model);
-            }
+            draw_node(node, mat_model);
         }
     }
 }
@@ -835,7 +841,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 }
 
 int main(void) {
-    g_model_type = ModelType::camera;
+    g_model_type = ModelType::duck;
 
     GLFWwindow* window;
 
@@ -867,9 +873,7 @@ int main(void) {
 
     // GPU의 VBO를 초기화하는 함수 호출
     init_buffer_objects();
-    std::cout << "init Buffer Initialized" << '\n';
     init_texture_objects();
-    std::cout << "text Buffer Initialized" << '\n';
 
     glfwSetKeyCallback(window, key_callback);
 
