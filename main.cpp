@@ -540,7 +540,7 @@ void set_transform() {
     } else {
         std::cout << "No camera" << '\n';
         mat_proj.set_to_identity();
-        if (g_model_type == ModelType::box_textured || g_model_type == ModelType::box) {
+        if (g_model_type == ModelType::box_textured || g_model_type == ModelType::box || g_model_type == ModelType::box_vertex_colors) {
             float fovy = 70.0f;
             float aspectRatio = 1.0f;
             float znear = 0.01f;
@@ -904,8 +904,10 @@ int main(int argc, char* argv[]) {
         g_model_type = ModelType::camera;
     } else if (modeltype == "box") {
         g_model_type = ModelType::box;
-    }else if (modeltype == "lantern") {
+    } else if (modeltype == "lantern") {
         g_model_type = ModelType::lantern;
+    } else if (modeltype == "box_vertex_colors"){
+        g_model_type = ModelType::box_vertex_colors;
     } else {
         std::cout << "Invaild Modeltype" << std::endl;
         assert(0);
