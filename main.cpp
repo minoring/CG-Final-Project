@@ -534,14 +534,16 @@ void set_transform() {
 
     if (!cameras.empty()) {
         // 카메라가 있는경우만.
+        std::cout << "camera exists" << '\n';
         const tinygltf::Camera& camera = cameras[camera_index];
         set_projection(camera);
     } else {
+        std::cout << "No camera" << '\n';
         mat_proj.set_to_identity();
-        // float fovy = 70.0f;
-        // float aspectRatio = 1.0f;
-        // float znear = 0.01f;
-        // float zfar = 100.0f;
+        float fovy = 70.0f;
+        float aspectRatio = 1.0f;
+        float znear = 0.01f;
+        float zfar = 100.0f;
 
         // mat_proj = kmuvcl::math::perspective(fovy, aspectRatio, znear, zfar);
         //mat_proj = kmuvcl::math::ortho(-30.f, 30.f, -30.f, 30.f, -30.f, 30.f);
@@ -716,7 +718,10 @@ void draw_node(const tinygltf::Node& node, kmuvcl::math::mat4f mat_model) {
 
             mat_model = mat_model * mat_node.transpose();
         }
-       	mat_model = kmuvcl::math::rotate(g_angle * 1.0f, 0.0f, 1.0f, 0.0f);
+       	// mat_model = kmuvcl::math::rotate(g_angle * 1.0f, 0.0f, 1.0f, 0.0f);
+        if (g_model_type == ModelType::lantern) {
+            mat_model.set_to_identity();
+        }
     }
     if (node.mesh > -1) {
         draw_mesh(meshes[node.mesh], mat_model);

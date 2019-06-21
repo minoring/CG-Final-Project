@@ -32,9 +32,9 @@ vec4 calc_color()
   float ndotl = max(0.0, dot(n_wc, l_wc));
   color += (ndotl * u_light_diffuse * material_diffuse);
 
-  color += 0.5 * texture2D(u_metallicRoughnessTexture, v_texcoord);
-  color += 0.5 * texture2D(u_normalTexture, v_texcoord);
-  color += 0.5 * texture2D(u_emissiveTexture, v_texcoord);
+  color += 0.05 * texture2D(u_metallicRoughnessTexture, v_texcoord);
+  color += 0.05 * texture2D(u_normalTexture, v_texcoord);
+  color += 0.05 * texture2D(u_emissiveTexture, v_texcoord);
 
   // float rdotv = max(0.0, dot(r_wc, v_wc) );
   //color += (pow(rdotv, u_material_shininess) * u_light_specular * u_material_specular);
