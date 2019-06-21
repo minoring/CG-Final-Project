@@ -554,7 +554,6 @@ void set_transform() {
         if (node.camera != camera_index) {
             continue;
         }
-
         if (node.scale.size() == 3) {
             mat_view = mat_view * kmuvcl::math::scale<float>(
                 1.0f / node.scale[0], 1.0f / node.scale[1], 1.0f / node.scale[2]);
@@ -570,7 +569,7 @@ void set_transform() {
                 -node.translation[0], -node.translation[1], -node.translation[2]);
         }      
 
-        if (node.translation.size() == 16) {
+        if (node.matrix.size() == 16) {
             kmuvcl::math::mat4f mat_node;
             mat_node(0, 0) = node.matrix[0];
             mat_node(0, 1) = node.matrix[1];
@@ -685,6 +684,7 @@ void draw_node(const tinygltf::Node& node, kmuvcl::math::mat4f mat_model) {
                         kmuvcl::math::quat2mat(node.rotation[0], node.rotation[1],
                                             node.rotation[2], node.rotation[3]);
         }
+        mat_model = mat_model * kmuvcl::math::rotate(g_angle * 1.0f, 0.0f, 1.0f, 0.0f);
 
         if (node.translation.size() == 3) {
             mat_model = mat_model * kmuvcl::math::translate<float>(
@@ -883,8 +883,25 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 		light_position_wc += kmuvcl::math::vec3f(0.0f, 0.0f, 10.0f);
 }
 
-int main(void) {
-    g_model_type = ModelType::lantern;
+int main(int argc, char* argv[]) {
+    std::string modeltype = argv[1];
+    g_model_type = ModelType::box_vertex_colors;
+    if (modeltype == "box_textured") {
+        g_model_type = ModelType::box_textured;
+    } else if (modeltype == "duck") {
+        g_model_type = ModelType::duck;
+    } else if (modeltype == "triangle") {
+        g_model_type = ModelType::triangle;
+    } else if (modeltype == "camera") {
+        g_model_type = ModelType::camera;
+    } else if (modeltype == "box") {
+        g_model_type = ModelType::box;
+    }else if (modeltype == "lantern") {
+        g_model_type = ModelType::lantern;
+    } else {
+        std::cout << "Invaild Modeltype" << std::endl;
+        assert(0);
+    }
 
     GLFWwindow* window;
 

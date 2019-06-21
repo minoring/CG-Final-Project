@@ -40,16 +40,16 @@
         {
             "translation": [
                 0.0,
-                0.75,
-                3.0
+                0.7,
+                5.0
             ],
             "camera": 0
         },
         {
             "translation": [
                 0.0,
-                0.75,
-                3.0
+                0.7,
+                30.0
             ],
             "camera": 1
         },
@@ -69,10 +69,10 @@
         },
         {
             "orthographic": {
-              "xmag": 1.0,
-              "ymag": 1.0,
-              "zfar": 100,
-              "znear": 0.01
+                "xmag": 1.0,
+                "ymag": 1.0,
+                "zfar": 100,
+                "znear": 0.01
             },
             "type": "orthographic"
         }
