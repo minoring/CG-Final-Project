@@ -42,6 +42,9 @@ GLint loc_u_material_specular;
 GLint loc_u_material_shininess;
 
 GLint loc_u_diffuse_texture;
+GLint loc_u_metallicRoughnessTexture;
+GLint loc_u_normalTexture;
+GLint loc_u_emissiveTexture;
 
 enum class ModelType { box_textured, duck, triangle, camera, box, 
                        box_vertex_colors, lantern };
@@ -70,6 +73,7 @@ GLuint index_buffer;
 GLuint color_buffer;
 
 GLuint diffuse_texid;
+GLuint texture_ids[4];
 
 Camera my_camera;
 float aspectRatio = 1.5f;
@@ -91,13 +95,14 @@ bool load_model(tinygltf::Model& model);
 void init_buffer_objects();  // VBO init 함수: GPU의 VBO를 초기화하는 함수.
 void init_texture_objects();
 
+void active_material(const tinygltf::Primitive& primitive);
+
 void draw_scene();
 void draw_node(const tinygltf::Node& node, kmuvcl::math::mat4f mat_view);
 void draw_mesh(const tinygltf::Mesh& mesh,
                const kmuvcl::math::mat4f& mat_model);
 
 void init_state() { glEnable(GL_DEPTH_TEST); }
-
 // GLSL 파일을 읽어서 컴파일한 후 쉐이더 객체를 생성하는 함수
 GLuint create_shader_from_file(const std::string& filename,
                                GLuint shader_type) {
@@ -234,6 +239,10 @@ void init_shader_program() {
         glGetUniformLocation(program, "u_material_shininess");
 
     loc_u_diffuse_texture = glGetUniformLocation(program, "u_diffuse_texture");
+    loc_u_metallicRoughnessTexture = 
+            glGetUniformLocation(program, "u_metallicRoughnessTexture"); 
+    loc_u_normalTexture = glGetUniformLocation(program, "u_normalTexture");
+    loc_u_emissiveTexture = glGetUniformLocation(program, "u_emissiveTexture");
 
     loc_a_position = glGetAttribLocation(program, "a_position");
     loc_a_normal = glGetAttribLocation(program, "a_normal");
@@ -257,7 +266,7 @@ bool load_model(tinygltf::Model& model) {
     } else if (g_model_type == ModelType::box_vertex_colors) {
         file_name = "./test_models/BoxVertexColors/BoxVertexColors.gltf";
     } else if (g_model_type == ModelType::lantern) {
-        file_name = "./test_models/Lantern/Lantern.gltf";        
+        file_name = "./test_models/Lantern/Lantern_test.gltf";        
     } else {
         std::cout << "No model selected";
         assert(0);
@@ -475,9 +484,10 @@ void init_texture_objects() {
     const std::vector<tinygltf::Image>& images = model.images;
     const std::vector<tinygltf::Sampler>& samplers = model.samplers;
 
+    int tex_index = 0;
     for (const tinygltf::Texture& texture : textures) {
-        glGenTextures(1, &diffuse_texid);
-        glBindTexture(GL_TEXTURE_2D, diffuse_texid);
+        glGenTextures(1, &texture_ids[tex_index]);
+        glBindTexture(GL_TEXTURE_2D, texture_ids[tex_index]);
 
         const tinygltf::Image& image = images[texture.source];
 
@@ -509,6 +519,7 @@ void init_texture_objects() {
             glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, sampler.wrapT);
         } 
         // glGenerateMipmap(GL_TEXTURE_2D);
+        tex_index++;
     }
 }
 
@@ -522,12 +533,13 @@ void set_transform() {
         set_projection(camera);
     } else {
         mat_proj.set_to_identity();
-        float fovy = 70.0f;
-        float aspectRatio = 1.0f;
-        float znear = 0.01f;
-        float zfar = 100.0f;
+        // float fovy = 70.0f;
+        // float aspectRatio = 1.0f;
+        // float znear = 0.01f;
+        // float zfar = 100.0f;
 
-        mat_proj = kmuvcl::math::perspective(fovy, aspectRatio, znear, zfar);
+        // mat_proj = kmuvcl::math::perspective(fovy, aspectRatio, znear, zfar);
+        mat_proj = kmuvcl::math::ortho(-30.f, 30.f, -30.f, 30.f, -30.f, 30.f);
     }
 
     mat_view.set_to_identity();
@@ -584,6 +596,8 @@ void set_transform() {
         mat_view = kmuvcl::math::translate(-0.7f, -0.6f, -2.0f);
     } else if (g_model_type == ModelType::box_vertex_colors) {
         mat_view = kmuvcl::math::translate(-0.7f, -0.8f, -3.0f);
+    } else if (g_model_type == ModelType::lantern) {
+        mat_view = kmuvcl::math::translate(0.0f, 0.0f, 0.0f);
     }
 }
 
@@ -613,10 +627,45 @@ void set_projection(const tinygltf::Camera& camera) {
     }
 }
 
+void active_material(const tinygltf::Primitive& primitive) {
+    const std::vector<tinygltf::Material>& materials = model.materials;
+
+    const tinygltf::Material& material = materials[primitive.material];
+    for (const std::pair<std::string, tinygltf::Parameter> parameter :
+            material.values) {
+        if (parameter.first.compare("baseColorTexture") == 0) {
+            if (parameter.second.TextureIndex() > -1) {
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, texture_ids[0]);
+                glUniform1i(loc_u_diffuse_texture, 0);
+            }
+        } else if (parameter.first.compare("metallicRoughnessTexture") == 0) {
+            if (parameter.second.TextureIndex() > -1) {
+                glActiveTexture(GL_TEXTURE1);
+                glBindTexture(GL_TEXTURE_2D, texture_ids[1]);
+                glUniform1i(loc_u_metallicRoughnessTexture, 1);
+            }
+        } else if (parameter.first.compare("normalTexture") == 0) {
+            if (parameter.second.TextureIndex() > -1) {
+                glActiveTexture(GL_TEXTURE2);
+                glBindTexture(GL_TEXTURE_2D, texture_ids[2]);
+                glUniform1i(loc_u_normalTexture, 2);
+            }
+        } else if (parameter.first.compare("emissiveTexture") == 0) {
+            if (parameter.second.TextureIndex() > -1) {
+                glActiveTexture(GL_TEXTURE3);
+                glBindTexture(GL_TEXTURE_2D, texture_ids[3]);
+                glUniform1i(loc_u_emissiveTexture, 3);
+            }
+        }
+    }
+}
+
 void draw_node(const tinygltf::Node& node, kmuvcl::math::mat4f mat_model) {
     const std::vector<tinygltf::Node>& nodes = model.nodes;
     const std::vector<tinygltf::Mesh>& meshes = model.meshes;
 
+    mat_model.set_to_identity();
     if (node.camera != camera_index) {
         if (node.scale.size() == 3) {
             mat_model =
@@ -666,6 +715,7 @@ void draw_node(const tinygltf::Node& node, kmuvcl::math::mat4f mat_model) {
     }
 
     for (size_t i = 0; i < node.children.size(); ++i) {
+        std::cout << "Child " << i << ' ' << "drawed" << '\n';
         draw_node(nodes[node.children[i]], mat_model);
     }
 }
@@ -687,9 +737,10 @@ void draw_mesh(const tinygltf::Mesh& mesh,
     view_position_wc[1] = mat_view(1, 3);
     view_position_wc[2] = mat_view(2, 3);
 
-    std::cout << "mat view: " << '\n' << mat_view << '\n';
-    std::cout << "camera positoin: " << view_position_wc[0] << ", "
-            << view_position_wc[1] << ", " << view_position_wc[2] << '\n';
+    std::cout << "mat model: " << mat_model << '\n';
+    // std::cout << "mat view: " << '\n' << mat_view << '\n';
+    // std::cout << "camera positoin: " << view_position_wc[0] << ", "
+    //         << view_position_wc[1] << ", " << view_position_wc[2] << '\n';
 
     glUniform3fv(loc_u_view_position_wc, 1, view_position_wc);
     glUniform3fv(loc_u_light_position_wc, 1, light_position_wc);
@@ -702,18 +753,7 @@ void draw_mesh(const tinygltf::Mesh& mesh,
 
     for (const tinygltf::Primitive& primitive : mesh.primitives) {
         if (primitive.material > -1) {
-            const tinygltf::Material& material = materials[primitive.material];
-            for (const std::pair<std::string, tinygltf::Parameter> parameter :
-                 material.values) {
-                if (parameter.first.compare("baseColorTexture") == 0) {
-                    if (parameter.second.TextureIndex() > -1) {
-                        glActiveTexture(GL_TEXTURE0);
-                        glBindTexture(GL_TEXTURE_2D, diffuse_texid);
-
-                        glUniform1i(loc_u_diffuse_texture, 0);
-                    }
-                }
-            }
+            active_material(primitive);
         }
 
         for (const std::pair<std::string, int>& attrib : primitive.attributes) {
@@ -760,10 +800,10 @@ void draw_mesh(const tinygltf::Mesh& mesh,
             const tinygltf::BufferView& bufferView =
                     bufferViews[index_accessor.bufferView];
 
-        glBindBuffer(bufferView.target, index_buffer);
-        glDrawElements(primitive.mode, index_accessor.count,
-                       index_accessor.componentType,
-                       BUFFER_OFFSET(index_accessor.byteOffset));
+            glBindBuffer(bufferView.target, index_buffer);
+            glDrawElements(primitive.mode, index_accessor.count,
+                        index_accessor.componentType,
+                        BUFFER_OFFSET(index_accessor.byteOffset));
         } else {
             glDrawArrays(GL_TRIANGLES, 0, 3);
         }
@@ -781,7 +821,6 @@ void draw_scene() {
 
     kmuvcl::math::mat4f mat_model;
     mat_model.set_to_identity();
-
     for (const tinygltf::Scene& scene : model.scenes) {
         for (size_t i = 0; i < scene.nodes.size(); ++i) {
             const tinygltf::Node& node = nodes[scene.nodes[i]];
@@ -815,7 +854,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 }
 
 int main(void) {
-    g_model_type = ModelType::duck;
+    g_model_type = ModelType::lantern;
 
     GLFWwindow* window;
 
