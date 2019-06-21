@@ -659,9 +659,9 @@ void draw_mesh(const tinygltf::Mesh& mesh,
     view_position_wc[1] = mat_view(1, 3);
     view_position_wc[2] = mat_view(2, 3);
 
-    std::cout << "mat view: " << '\n' << mat_view << '\n';
-    std::cout << "camera positoin: " << view_position_wc[0] << ", "
-            << view_position_wc[1] << ", " << view_position_wc[2] << '\n';
+    // std::cout << "mat view: " << '\n' << mat_view << '\n';
+    // std::cout << "camera positoin: " << view_position_wc[0] << ", "
+    //         << view_position_wc[1] << ", " << view_position_wc[2] << '\n';
 
     glUniform3fv(loc_u_view_position_wc, 1, view_position_wc);
     glUniform3fv(loc_u_light_position_wc, 1, light_position_wc);
@@ -786,8 +786,24 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     }
 }
 
-int main(void) {
-    g_model_type = ModelType::box_vertex_colors;
+int main(int argc, char* argv[]) {
+    std::string modeltype = argv[1];
+    if (modeltype == "box_textured") {
+        g_model_type = ModelType::box_textured;
+    } else if (modeltype == "duck") {
+        g_model_type = ModelType::duck;
+    } else if (modeltype == "triangle") {
+        g_model_type = ModelType::triangle;
+    } else if (modeltype == "camera") {
+        g_model_type = ModelType::camera;
+    } else if (modeltype == "box") {
+        g_model_type = ModelType::box;
+    } else if (modeltype == "box_vertex_colors") {
+        g_model_type = ModelType::box_vertex_colors;
+    } else {
+        std::cout << "Invaild Modeltype" << std::endl;
+        assert(0);
+    }
 
     GLFWwindow* window;
 
