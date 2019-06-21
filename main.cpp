@@ -540,13 +540,17 @@ void set_transform() {
     } else {
         std::cout << "No camera" << '\n';
         mat_proj.set_to_identity();
-        // float fovy = 70.0f;
-        // float aspectRatio = 1.0f;
-        // float znear = 0.01f;
-        // float zfar = 100.0f;
+        if (g_model_type == ModelType::box_textured || g_model_type == ModelType::box) {
+            float fovy = 70.0f;
+            float aspectRatio = 1.0f;
+            float znear = 0.01f;
+            float zfar = 100.0f;
 
-        // mat_proj = kmuvcl::math::perspective(fovy, aspectRatio, znear, zfar);
-        mat_proj = kmuvcl::math::ortho(-30.f, 30.f, -30.f, 30.f, -30.f, 30.f);
+            mat_proj = kmuvcl::math::perspective(fovy, aspectRatio, znear, zfar);
+        } else {
+            mat_proj = kmuvcl::math::ortho(-30.f, 30.f, -30.f, 30.f, -30.f, 30.f);
+        }
+
     }
 
     mat_view.set_to_identity();
@@ -599,7 +603,7 @@ void set_transform() {
     if (g_model_type == ModelType::box_textured) {
         mat_view = kmuvcl::math::translate(0.0f, 0.0f, -2.0f);
     } else if (g_model_type == ModelType::box) {
-        mat_view = kmuvcl::math::translate(-0.7f, -0.6f, -2.0f);
+        mat_view = kmuvcl::math::translate(-0.6f, -0.6f, -2.0f);
     } else if (g_model_type == ModelType::box_vertex_colors) {
         mat_view = kmuvcl::math::translate(-0.7f, -0.8f, -3.0f);
     } else if (g_model_type == ModelType::lantern) {
@@ -896,7 +900,7 @@ int main(int argc, char* argv[]) {
         g_model_type = ModelType::camera;
     } else if (modeltype == "box") {
         g_model_type = ModelType::box;
-    }else if (modeltype == "lantern") {
+    } else if (modeltype == "lantern") {
         g_model_type = ModelType::lantern;
     } else {
         std::cout << "Invaild Modeltype" << std::endl;
